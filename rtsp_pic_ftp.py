@@ -48,10 +48,9 @@ class CameraGUI:
         tk.Button(self.root, text="全部开始拍照", command=self.start_all_cameras).grid(row=1, column=6)
         tk.Button(self.root, text="全部暂停拍照", command=self.stop_all_cameras).grid(row=1, column=7)
 
-        # 启动后台循环线程
-        self.running = True
-        self.capture_thread = Thread(target=self.capture_and_upload_images)
-        self.capture_thread.start()
+        # 初始化线程状态
+        self.running = False
+        self.capture_thread = None
 
     def load_cameras(self):
         """从数据库加载摄像头数据"""
@@ -143,21 +142,32 @@ class CameraGUI:
         """全部开始拍照"""
         for cam_id in self.camera_states:
             self.camera_states[cam_id] = True
+
         # 设置所有开始拍照按钮为选中状态
         for row in range(1, len(self.camera_states) + 1):
             start_button = self.root.grid_slaves(row=row, column=6)[0]
             stop_button = self.root.grid_slaves(row=row, column=7)[0]
             self.set_button_selected(start_button, stop_button)
 
+        # 如果线程未运行，启动新线程
+        if not self.running:
+            self.running = True
+            self.capture_thread = Thread(target=self.capture_and_upload_images)
+            self.capture_thread.start()
+
     def stop_all_cameras(self):
         """全部停止拍照"""
         for cam_id in self.camera_states:
             self.camera_states[cam_id] = False
+
         # 设置所有停止拍照按钮为选中状态
         for row in range(1, len(self.camera_states) + 1):
             start_button = self.root.grid_slaves(row=row, column=6)[0]
             stop_button = self.root.grid_slaves(row=row, column=7)[0]
             self.set_button_selected(stop_button, start_button)
+
+        # 停止后台拍照线程
+        self.running = False
 
     def open_ftp_settings(self):
         """打开FTP设置窗口"""
@@ -204,12 +214,12 @@ class CameraGUI:
 
     def capture_and_upload_images(self):
         """后台线程轮询各摄像头并拍照上传"""
+        conn = sqlite3.connect("cameras.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, ip, interval FROM cameras")
+        cameras = cursor.fetchall()
+        conn.close()
         while self.running:
-            conn = sqlite3.connect("cameras.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, ip, interval FROM cameras")
-            cameras = cursor.fetchall()
-
             for cam_id, ip, interval in cameras:
                 if not ip or not self.camera_states.get(cam_id):
                     continue
@@ -231,9 +241,8 @@ class CameraGUI:
                         self.upload_to_ftp(file_path, year, month, day, filename)
                         self.last_capture_times[cam_id] = current_time
                     cap.release()
-
-            conn.close()
-            time.sleep(1)
+                    # sleep 10ms
+                    time.sleep(0.01)
 
     def upload_to_ftp(self, file_path, year, month, day, filename):
         """上传图片到FTP服务器，按日期创建文件夹"""
