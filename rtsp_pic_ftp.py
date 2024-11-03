@@ -51,6 +51,7 @@ class CameraGUI:
         # 初始化线程状态
         self.running = False
         self.capture_thread = None
+        self.ftp_connection = None  # 全局FTP连接
 
     def load_cameras(self):
         """从数据库加载摄像头数据"""
@@ -144,10 +145,11 @@ class CameraGUI:
             self.camera_states[cam_id] = True
 
         # 设置所有开始拍照按钮为选中状态
-        for row in range(1, len(self.camera_states) + 1):
-            start_button = self.root.grid_slaves(row=row, column=6)[0]
-            stop_button = self.root.grid_slaves(row=row, column=7)[0]
-            self.set_button_selected(start_button, stop_button)
+        for row in range(1, len(self.camera_states) + 2):  # 调整循环范围，确保处理所有按钮
+            start_button = self.root.grid_slaves(row=row, column=6)
+            stop_button = self.root.grid_slaves(row=row, column=7)
+            if start_button and stop_button:
+                self.set_button_selected(start_button[0], stop_button[0])
 
         # 如果线程未运行，启动新线程
         if not self.running:
@@ -161,10 +163,11 @@ class CameraGUI:
             self.camera_states[cam_id] = False
 
         # 设置所有停止拍照按钮为选中状态
-        for row in range(1, len(self.camera_states) + 1):
-            start_button = self.root.grid_slaves(row=row, column=6)[0]
-            stop_button = self.root.grid_slaves(row=row, column=7)[0]
-            self.set_button_selected(stop_button, start_button)
+        for row in range(1, len(self.camera_states) + 2):  # 调整循环范围，确保处理所有按钮
+            start_button = self.root.grid_slaves(row=row, column=6)
+            stop_button = self.root.grid_slaves(row=row, column=7)
+            if start_button and stop_button:
+                self.set_button_selected(stop_button[0], start_button[0])
 
         # 停止后台拍照线程
         self.running = False
@@ -241,8 +244,7 @@ class CameraGUI:
                         self.upload_to_ftp(file_path, year, month, day, filename)
                         self.last_capture_times[cam_id] = current_time
                     cap.release()
-                    # sleep 10ms
-                    time.sleep(0.01)
+            time.sleep(0.01)
 
     def upload_to_ftp(self, file_path, year, month, day, filename):
         """上传图片到FTP服务器，按日期创建文件夹"""
