@@ -173,7 +173,6 @@ class CameraGUI:
                         self.last_capture_times[cam_id] = current_time  # 更新拍照时间
 
             conn.close()  # 关闭数据库连接
-            time.sleep(1)  # 等待 1 秒后再检查
 
 if __name__ == "__main__":
     root = tk.Tk()
